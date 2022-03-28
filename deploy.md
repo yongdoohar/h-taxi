@@ -60,7 +60,7 @@ spec:
     - destination:
         host: h-taxi-grap
         subset: v1
-      weight: 0
+      weight: 100
 EOF
 ```
 ```
