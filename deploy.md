@@ -77,7 +77,11 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "h-taxi-grap.....co.kr"
+    - "h-taxi-grap.co.kr"
+```
+- 서비스 호출 및 VirtualService가 정상적으로 서비스 되고 있음을 확인
+```
+http http://h-taxi-grap.co.kr/actuator/echo
 ```
 
 ## Circuit Breaker
