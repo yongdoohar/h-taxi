@@ -64,6 +64,7 @@ spec:
 EOF
 ```
 ```
+kubectl apply -f - << EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -78,6 +79,7 @@ spec:
       protocol: HTTP
     hosts:
     - "h-taxi-grap.co.kr"
+EOF
 ```
 - 서비스 호출 및 VirtualService가 정상적으로 서비스 되고 있음을 확인
 ```
