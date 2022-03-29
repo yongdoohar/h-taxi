@@ -179,6 +179,9 @@ cache:
 ```
 <img src="./aws.png" />
 
+6. git에 push될때 Webhook을 통한 빌드 유발 작동 확인
+<img src="./codebuild.png" />
+
 # Gateway
 1. gateway 및 virtualService 생성
 ```
