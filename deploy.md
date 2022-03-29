@@ -178,6 +178,7 @@ cache:
   paths:
     - '/root/.m2/**/*'
 ```
+<img src="./aws.png" />
 
 ## Gateway
 1. gateway 및 virtualService 생성
