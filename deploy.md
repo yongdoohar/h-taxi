@@ -391,3 +391,8 @@ mysql> show databases;
 
 mysql> exit
 ```
+## Polyglot
+1. Java -> Kotlin 변환
+<img src="./java-kotlin.png" />
+
+2. `deploy` 부분을 동일하게 진행하여 테스트
