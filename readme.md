@@ -223,8 +223,20 @@ EOF
 ```
 - 서비스 호출 및 VirtualService가 정상적으로 서비스 되고 있음을 확인
 ```
-$ export GATEWAY_URL=$(kubectl -n istio-system get service/istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-http http://$GATEWAY_URL/h-taxi-grap/actuator/echo
+kubectl -n istio-system get service/istio-ingressgateway
+NAME                   TYPE           CLUSTER-IP      EXTERNAL-IP                                                                   PORT(S)                                                                      AGE
+istio-ingressgateway   LoadBalancer   10.100.31.171   ae4609bc10f1f42998c584fe14ca135e-995907846.ap-northeast-1.elb.amazonaws.com   15021:31779/TCP,80:31137/TCP,443:31132/TCP,31400:32094/TCP,15443:31807/TCP   19m
+
+http http://ae4609bc10f1f42998c584fe14ca135e-995907846.ap-northeast-1.elb.amazonaws.com/h-taxi-grap/actuator/echo
+
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:14 GMT
+server: envoy
+x-envoy-upstream-service-time: 215
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
 
 ```
 
@@ -257,7 +269,7 @@ kubectl scale deploy h-taxi-grap --replicas=3
 - 새 터미널에서 Http Client 컨테이너를 설치하고, 접속한다.
 ```
 kubectl create deploy siege --image=ghcr.io/acmexii/siege-nginx:latest
-kubectl exec -it pod/[SIEGE POD객체] -- /bin/bash
+kubectl exec -it pod/siege-75d5587bf6-fns4p -- /bin/bash
 ```
 3. Circuit Breaker 동작 확인
 - 서비스 호출 및 컨테이너가 정상적으로 서비스 되고 있음을 확인
@@ -271,26 +283,6 @@ server: envoy
 x-envoy-upstream-service-time: 215
 
 h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
-
-root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
-HTTP/1.1 200 OK
-content-length: 39
-content-type: text/plain;charset=UTF-8
-date: Tue, 29 Mar 2022 05:23:24 GMT
-server: envoy
-x-envoy-upstream-service-time: 12
-
-h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
-
-root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
-HTTP/1.1 200 OK
-content-length: 40
-content-type: text/plain;charset=UTF-8
-date: Tue, 29 Mar 2022 05:23:28 GMT
-server: envoy
-x-envoy-upstream-service-time: 345
-
-h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
 
 root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
 HTTP/1.1 200 OK
@@ -308,29 +300,9 @@ content-length: 40
 content-type: text/plain;charset=UTF-8
 date: Tue, 29 Mar 2022 05:23:31 GMT
 server: envoy
-x-envoy-upstream-service-time: 311
-
-h-taxi-grap-67ff6476bb-sq452/192.168.12.148
-
-root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
-HTTP/1.1 200 OK
-content-length: 40
-content-type: text/plain;charset=UTF-8
-date: Tue, 29 Mar 2022 05:23:31 GMT
-server: envoy
 x-envoy-upstream-service-time: 25
 
 h-taxi-grap-67ff6476bb-sq452/192.168.12.148
-
-root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
-HTTP/1.1 200 OK
-content-length: 39
-content-type: text/plain;charset=UTF-8
-date: Tue, 29 Mar 2022 05:23:33 GMT
-server: envoy
-x-envoy-upstream-service-time: 10
-
-h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
 
 ```
 - 새로운 터미널에서 마지막에 출력된 h-taxi-grap 컨테이너로 접속하여 명시적으로 5xx 오류를 발생 시킨다.
