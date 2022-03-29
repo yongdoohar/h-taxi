@@ -1,6 +1,5 @@
-# h-taxi
 
-## deploy
+# Deploy
 
 1. deploy 테스트를 위한 k8s pod 생성
 
@@ -180,7 +179,7 @@ cache:
 ```
 <img src="./aws.png" />
 
-## Gateway
+# Gateway
 1. gateway 및 virtualService 생성
 ```
 kubectl apply -f - << EOF
@@ -190,13 +189,18 @@ metadata:
   name: h-taxi-grap
 spec:
   hosts:
-    - h-taxi-grap
+    - "*"
+  gateways:
+  - h-taxi-grap
   http:
-  - route:
+  - match:
+    - uri:
+        prefix: /h-taxi-grap
+    route:
     - destination:
         host: h-taxi-grap
-        subset: v1
-      weight: 100
+        port:
+          number: 8080
 EOF
 ```
 ```
@@ -214,15 +218,17 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "h-taxi-grap.co.kr"
+    - "*"
 EOF
 ```
 - 서비스 호출 및 VirtualService가 정상적으로 서비스 되고 있음을 확인
 ```
-http http://h-taxi-grap.co.kr/actuator/echo
+$ export GATEWAY_URL=$(kubectl -n istio-system get service/istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+http http://$GATEWAY_URL/h-taxi-grap/actuator/echo
+
 ```
 
-## Circuit Breaker
+# Circuit Breaker
 
 1. Circuit Breaker 설치
 - DestinationRule 생성
@@ -256,33 +262,178 @@ kubectl exec -it pod/[SIEGE POD객체] -- /bin/bash
 3. Circuit Breaker 동작 확인
 - 서비스 호출 및 컨테이너가 정상적으로 서비스 되고 있음을 확인
 ```
-http http://h-taxi-grap:8080/actuator/echo
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:14 GMT
+server: envoy
+x-envoy-upstream-service-time: 215
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:24 GMT
+server: envoy
+x-envoy-upstream-service-time: 12
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:28 GMT
+server: envoy
+x-envoy-upstream-service-time: 345
+
+h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:30 GMT
+server: envoy
+x-envoy-upstream-service-time: 16
+
+h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:31 GMT
+server: envoy
+x-envoy-upstream-service-time: 311
+
+h-taxi-grap-67ff6476bb-sq452/192.168.12.148
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:31 GMT
+server: envoy
+x-envoy-upstream-service-time: 25
+
+h-taxi-grap-67ff6476bb-sq452/192.168.12.148
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:33 GMT
+server: envoy
+x-envoy-upstream-service-time: 10
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
+
 ```
-- 새로운 터미널에서 마지막에 출력된 Delivery 컨테이너로 접속하여 명시적으로 5xx 오류를 발생 시킨다.
+- 새로운 터미널에서 마지막에 출력된 h-taxi-grap 컨테이너로 접속하여 명시적으로 5xx 오류를 발생 시킨다.
 ```
 # 새로운 터미널 Open
 # 3개 중 하나의 컨테이너에 접속
-kubectl exec -it pod/[DELIVERY POD객체] -c h-taxi-grap -- /bin/sh
+kubectl exec -it pod/h-taxi-grap-67ff6476bb-ls9dw -c h-taxi-grap -- /bin/sh
 #
 # httpie 설치 및 서비스 명시적 다운
 apk update
 apk add httpie
 http PUT http://localhost:8080/actuator/down
 ```
-- Siege로 접속한 이전 터미널에서 Delivery 서비스로 접속해 3회 이상 호출해 본다.
+- Siege로 접속한 이전 터미널에서 h-taxi-grap 서비스로 접속해 3회 이상 호출해 본다.
 ```
 http GET http://h-taxi-grap:8080/actuator/health
 ```
-- 최종, 아래 URL을 통해 3개 중 2개의 컨테이너만 서비스 됨을 확인한다.
+- 아래 URL을 통해 3개 중 2개의 컨테이너만 서비스 됨을 확인한다.
 ```
-http http://h-taxi-grap:8080/actuator/echo
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:28:15 GMT
+server: envoy
+x-envoy-upstream-service-time: 13
+
+h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:28:16 GMT
+server: envoy
+x-envoy-upstream-service-time: 7
+
+h-taxi-grap-67ff6476bb-sq452/192.168.12.148
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:28:17 GMT
+server: envoy
+x-envoy-upstream-service-time: 12
+
+h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:28:19 GMT
+server: envoy
+x-envoy-upstream-service-time: 11
+
+h-taxi-grap-67ff6476bb-sq452/192.168.12.148
 ```
 - Pool Ejection 타임(3’) 경과후엔 컨테이너 3개가 모두 동작됨이 확인된다.
 ```
-http http://h-taxi-grap:8080/actuator/echo
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:14 GMT
+server: envoy
+x-envoy-upstream-service-time: 215
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:28 GMT
+server: envoy
+x-envoy-upstream-service-time: 345
+
+h-taxi-grap-67ff6476bb-6rzwc/192.168.82.161
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 40
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:31 GMT
+server: envoy
+x-envoy-upstream-service-time: 311
+
+h-taxi-grap-67ff6476bb-sq452/192.168.12.148
+
+root@siege-75d5587bf6-fns4p:/# http http://h-taxi-grap:8080/actuator/echo
+HTTP/1.1 200 OK
+content-length: 39
+content-type: text/plain;charset=UTF-8
+date: Tue, 29 Mar 2022 05:23:33 GMT
+server: envoy
+x-envoy-upstream-service-time: 10
+
+h-taxi-grap-67ff6476bb-ls9dw/192.168.33.76
 ```
 
-## Config Map
+# Config Map
 1. PVC 생성
 ```
 kubectl apply -f - << EOF
@@ -391,7 +542,7 @@ mysql> show databases;
 
 mysql> exit
 ```
-## Polyglot
+# Polyglot
 1. Java -> Kotlin 변환
 <img src="./java-kotlin.png" />
 
