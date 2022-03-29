@@ -514,6 +514,66 @@ mysql> show databases;
 
 mysql> exit
 ```
+
+6. Pod 삭제 후 재생성하고 다시 db에 접속하여 영속성 확인
+```
+kubectl delete pod/mysql
+
+kubectl apply -f - << EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql
+  labels:
+    name: lbl-k8s-mysql
+spec:
+  containers:
+  - name: mysql
+    image: mysql:latest
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mysql-pass
+          key: password
+    ports:
+    - name: mysql
+      containerPort: 3306
+      protocol: TCP
+    volumeMounts:
+    - name: k8s-mysql-storage
+      mountPath: /var/lib/mysql
+  volumes:
+  - name: k8s-mysql-storage
+    persistentVolumeClaim:
+      claimName: "fs"
+EOF
+
+$ kubectl exec mysql -it -- bash
+
+# echo $MYSQL_ROOT_PASSWORD
+admin
+
+# mysql --user=root --password=$MYSQL_ROOT_PASSWORD
+
+mysql> create database orderdb;
+    -> ;
+Query OK, 1 row affected (0.01 sec)
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| h-taxi-db            |
+| performance_schema |
+| sys                |
++--------------------+
+5 rows in set (0.01 sec)
+
+mysql> exit
+```
 # Polyglot
 1. Java -> Kotlin 변환
 <img src="./java-kotlin.png" />
